@@ -1,0 +1,6 @@
+seen_ids.json
+geocache.json
+monitor.log
+__pycache__/
+*.pyc
+.claude/

@@ -1,0 +1,2072 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台南/高雄 急售房屋監控 · 2026-06-06 01:32</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f0f2f5; color: #333; }
+
+  header { background: #1a1a2e; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header .sub { font-size: 13px; color: #aaa; margin-top: 2px; }
+  .stats { margin-left: auto; display: flex; gap: 20px; text-align: center; }
+  .stat-val { font-size: 22px; font-weight: 700; color: #e74c3c; }
+  .stat-lbl { font-size: 11px; color: #999; }
+
+  .legend { background: #1a1a2e; color: #ccc; padding: 8px 24px; font-size: 12px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+  .dot-townhouse { display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    border: 3px dashed #8e44ad; margin-right: 4px; }
+
+  #map { height: 420px; width: 100%; }
+
+  .panel { padding: 20px 24px; }
+  .panel-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1a1a2e; }
+
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 20px; background: white;
+    cursor: pointer; font-size: 13px; transition: all .2s; }
+  .filter-btn:hover, .filter-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .card { background: white; border-radius: 10px; padding: 16px; cursor: pointer;
+    transition: box-shadow .2s, transform .2s; border: 1px solid #eee; }
+  .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); transform: translateY(-2px); }
+
+  .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tag { background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .tag.low { background: #e67e22; }
+  .region { font-size: 12px; color: #888; }
+  .badge { background: #c0392b; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: auto; }
+  .badge-red { background: #e74c3c; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px; margin-left: 4px; }
+  .badge-townhouse { background: #8e44ad; color: white; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .card-townhouse { border: 2px solid #8e44ad; background: linear-gradient(135deg, #fff 0%, #fdf4ff 100%); }
+
+  .card-addr { font-size: 15px; font-weight: 600; color: #222; }
+  .card-title { font-size: 12px; color: #777; margin: 4px 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .card-price { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .price { font-size: 22px; font-weight: 700; color: #e74c3c; }
+  .unit { font-size: 13px; color: #666; }
+  .market { font-size: 12px; color: #27ae60; background: #eafaf1; padding: 2px 6px; border-radius: 4px; }
+
+  .card-meta { font-size: 12px; color: #888; }
+  .card-optag { font-size: 12px; color: #856404; background: #fff3cd; padding: 4px 8px;
+    border-radius: 4px; margin-top: 8px; }
+
+  .updated { font-size: 12px; color: #aaa; margin-top: 16px; text-align: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏠 台南 / 高雄 急售房屋監控</h1>
+    <div class="sub">1000萬以下 · 急售 + 低於市價 · 與行政區行情比較</div>
+  </div>
+  <div class="stats">
+    <div><div class="stat-val">88</div><div class="stat-lbl">本次物件</div></div>
+  </div>
+</header>
+
+<div class="legend">
+  <span><span class="dot" style="background:#e74c3c"></span>低於市場 15%+</span>
+  <span><span class="dot" style="background:#e67e22"></span>低於市場 8-15%</span>
+  <span><span class="dot" style="background:#f1c40f"></span>急售標記</span>
+  <span><span class="dot-townhouse"></span>透天厝</span>
+  <span>點擊標記查看詳情</span>
+</div>
+
+<div id="map"></div>
+
+<div class="panel">
+  <div class="panel-title">物件列表</div>
+  <div class="filters">
+    <button class="filter-btn active" onclick="filterCards('all', this)">全部 (88)</button>
+    <button class="filter-btn" onclick="filterCards('急售', this)">急售</button>
+    <button class="filter-btn" onclick="filterCards('低於市價', this)">低於市價</button>
+    <button class="filter-btn" onclick="filterCards('高雄市', this)">高雄市</button>
+    <button class="filter-btn" onclick="filterCards('台南市', this)">台南市</button>
+    <button class="filter-btn" style="border-color:#8e44ad;color:#8e44ad" onclick="filterCards('透天厝', this)">🏘️ 透天厝</button>
+  </div>
+  <div class="cards" id="cards">
+    
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19959637.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 路竹區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">潭墘路</div>
+          <div class="card-title">實價5折●路竹●火爆法拍★地坪：38坪★建坪：98.5坪</div>
+          <div class="card-price">
+            <span class="price">870 萬</span>
+            <span class="unit">8.84 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            8房2廳4衛 · 98.47 坪 · 25年 · 整棟/3F
+          </div>
+          <div class='card-optag'>📊 路竹區 住宅收藏排名第1名</div>
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19949338.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 學甲區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">信義路</div>
+          <div class="card-title">臺南市立學甲國民中學🚩698萬</div>
+          <div class="card-price">
+            <span class="price">698 萬</span>
+            <span class="unit">10.91 萬/坪</span>
+            <span class='market'>市場均價 36.96 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            6房2廳4衛 · 64 坪 · 32年 · 整棟/4F
+          </div>
+          <div class='card-optag'>📊 學甲區 住宅收藏排名第1名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20136918.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 東區</span>
+            <span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">裕農路389巷</div>
+          <div class="card-title">🌸東區🌸國泰建設🌸走路上南紡CP美寓</div>
+          <div class="card-price">
+            <span class="price">568 萬</span>
+            <span class="unit">13.99 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 40.61 坪 · 41年 · 4F/5F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20151870.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">大成路二段</div>
+          <div class="card-title">出價談大成路3樓3房2廳健身公寓</div>
+          <div class="card-price">
+            <span class="price">448 萬</span>
+            <span class="unit">14.82 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳1衛 · 30.23 坪 · 42年 · 3F/5F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20299301.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鼓山區</span>
+            <span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">九如四路1131巷</div>
+          <div class="card-title">美術館生活圈旁｜40坪大四房588萬</div>
+          <div class="card-price">
+            <span class="price">588 萬</span>
+            <span class="unit">14.65 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳2衛 · 40.14 坪 · 40年 · 4F/5F
+          </div>
+          
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20149846.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 新營區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge'>低 53%</span>
+          </div>
+          <div class="card-addr">明清三街</div>
+          <div class="card-title">獨家🍍新營低總價整棟透天🍎全區最便宜真金不怕火煉</div>
+          <div class="card-price">
+            <span class="price">898 萬</span>
+            <span class="unit">17.62 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳3衛 · 50.95 坪 · 34年 · 整棟/3F
+          </div>
+          
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20149903.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 新營區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge'>低 53%</span>
+          </div>
+          <div class="card-addr">明清三街</div>
+          <div class="card-title">獨家🍍新營低總價整棟透天🍎全區最便宜貸款鑑價高</div>
+          <div class="card-price">
+            <span class="price">898 萬</span>
+            <span class="unit">17.62 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳3衛 · 50.95 坪 · 34年 · 整棟/3F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20281821.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鼓山區</span>
+            <span class='badge'>低 51%</span>
+          </div>
+          <div class="card-addr">九如四路1382巷</div>
+          <div class="card-title">投資自住好選擇|3房2廳2衛📞好視野</div>
+          <div class="card-price">
+            <span class="price">488 萬</span>
+            <span class="unit">16.49 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 29.59 坪 · 40年 · 4F/5F
+          </div>
+          <div class='card-optag'>📊 鼓山區 住宅熱搜排名第6名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20274292.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安平區</span>
+            <span class='badge'>低 49%</span>
+          </div>
+          <div class="card-addr">建平八街</div>
+          <div class="card-title">獨家秒殺!!!【安平低總價3房】【高樓採光美景宅】小資好購入</div>
+          <div class="card-price">
+            <span class="price">618 萬</span>
+            <span class="unit">19.02 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 32.49 坪 · 29年 · 14F/26F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區3房｜180萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19937178.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge'>低 47%</span>
+          </div>
+          <div class="card-addr">青年路二段</div>
+          <div class="card-title">破盤單坪17萬~文山特區#正修科大#黃金地段#採光大四房</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">17.73 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳2衛 · 56.27 坪 · 35年 · 4F/15F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20311250.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 永康區</span>
+            <span class='badge'>低 47%</span>
+          </div>
+          <div class="card-addr">埔聖街75巷</div>
+          <div class="card-title">獨家專簽💚永大萬歲｜永康國中旁採光三房+平面車位｜馬上帶看</div>
+          <div class="card-price">
+            <span class="price">800 萬</span>
+            <span class="unit">19.76 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 40.49 坪 · 29年 · 4F/8F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20170404.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳥松區</span>
+            <span class='badge'>低 47%</span>
+          </div>
+          <div class="card-addr">松埔北巷</div>
+          <div class="card-title">沃｜美麗皇家｜高樓美景無遮擋｜大三房三陽台｜已租平車</div>
+          <div class="card-price">
+            <span class="price">698 萬</span>
+            <span class="unit">17.84 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 39.12 坪 · 28年 · 15F/15F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20314500.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳥松區</span>
+            <span class='badge'>低 46%</span>
+          </div>
+          <div class="card-addr">松埔北巷</div>
+          <div class="card-title">★離塵不離城★龍揚山莊高樓採光大二房平車★</div>
+          <div class="card-price">
+            <span class="price">638 萬</span>
+            <span class="unit">18.1 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 35.25 坪 · 31年 · 13F/16F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20314555.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 苓雅區</span>
+            <span class='badge'>低 46%</span>
+          </div>
+          <div class="card-addr">凱旋三路505巷</div>
+          <div class="card-title">首購免百萬就成家，英明商圈三樓的三房美寓只要3XX萬</div>
+          <div class="card-price">
+            <span class="price">338 萬</span>
+            <span class="unit">18.12 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳1衛 · 18.65 坪 · 47年 · 3F/5F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20338443.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安平區</span>
+            <span class='badge'>低 43%</span>
+          </div>
+          <div class="card-addr">慶平路</div>
+          <div class="card-title">41.07坪🎈綠園大道🎈時尚/慶平路</div>
+          <div class="card-price">
+            <span class="price">868 萬</span>
+            <span class="unit">21.13 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 41.07 坪 · 32年 · 5F/6F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20195289.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 中西區</span>
+            <span class='badge'>低 43%</span>
+          </div>
+          <div class="card-addr">武聖路69巷</div>
+          <div class="card-title">武聖商圈🔥三面採光室內約25坪｜邊間兩房兩衛✅拎包入住</div>
+          <div class="card-price">
+            <span class="price">688 萬</span>
+            <span class="unit">21.4 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 32.15 坪 · 31年 · 12F/12F
+          </div>
+          <div class='card-optag'>📊 中西區 住宅收藏排名第4名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20176929.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 大社區</span>
+            <span class='badge'>低 42%</span><span class='badge-red'>↓降11%</span>
+          </div>
+          <div class="card-addr">翠屏路84巷</div>
+          <div class="card-title">💕專約屋主誠意大降價💕大社運動家💕高樓層景觀套房💕</div>
+          <div class="card-price">
+            <span class="price">238 萬</span>
+            <span class="unit">19.46 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            1房1衛 · 12.23 坪 · 32年 · 10F/19F
+          </div>
+          <div class='card-optag'>📊 已降價｜30萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20144894.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">台南市 東區</span>
+            <span class='badge'>低 41%</span>
+          </div>
+          <div class="card-addr">中華東路二段295巷</div>
+          <div class="card-title">東區復興學區方正通風採光三房美宅</div>
+          <div class="card-price">
+            <span class="price">758 萬</span>
+            <span class="unit">21.7 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 34.94 坪 · 31年 · 7F/8F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區3房｜441萬</div>
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20238768.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安南區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge' style='background:#7f8c8d'>⚠ 請確認</span><span class='badge-red'>↓降49%</span>
+          </div>
+          <div class="card-addr">塩田路395巷</div>
+          <div class="card-title">安南科工區朝南社區透天車墅</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">22.41 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳3衛 · 39.62 坪 · 19年 · 整棟/4F
+          </div>
+          <div class='card-optag'>📊 已降價｜862萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20067985.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">台南市 東區</span>
+            <span class='badge'>低 40%</span>
+          </div>
+          <div class="card-addr">大同路二段</div>
+          <div class="card-title">⭐急售!降價!⭐實登倒掛｜東區兩房平車｜億載金城</div>
+          <div class="card-price">
+            <span class="price">886 萬</span>
+            <span class="unit">22.27 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 39.78 坪 · 31年 · 14F/16F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19787227.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安平區</span>
+            <span class='badge'>低 40%</span>
+          </div>
+          <div class="card-addr">建平一街224巷</div>
+          <div class="card-title">草頭黃☀️陽台進出明亮四房車位學區宅</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">22.55 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳2衛 · 39.38 坪 · 30年 · 3F/7F
+          </div>
+          <div class='card-optag'>📊 安平區活躍榜第14名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20278858.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 東區</span>
+            <span class='badge'>低 39%</span>
+          </div>
+          <div class="card-addr">東智街</div>
+          <div class="card-title">🏡崇明國中3房+車位｜公園旁稀有釋出</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">22.46 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 39.53 坪 · 26年 · 5F/7F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20017459.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 東區</span>
+            <span class='badge'>低 39%</span>
+          </div>
+          <div class="card-addr">崇德路917巷</div>
+          <div class="card-title">＊╮崇明國中↗鄰公園◈三房車位美宅╭＊</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">22.48 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 39.5 坪 · 26年 · 5F/7F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20317157.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">萬年七街</div>
+          <div class="card-title">做厝事的文森．南區．華友聯EVO免千萬可隔三房平車</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">22.86 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 43.66 坪 · 8年 · 3F/15F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20304601.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge' style='background:#7f8c8d'>⚠ 請確認</span><span class='badge-red'>↓降4%</span>
+          </div>
+          <div class="card-addr">萬年七街</div>
+          <div class="card-title">超值!!南區EVO綠意可隔三房平車</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">22.89 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 43.6 坪 · 7年 · 3F/15F
+          </div>
+          <div class='card-optag'>📊 5天前降價｜42萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20324745.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">台南市 七股區</span>
+            <span class='badge' style='background:#7f8c8d'>⚠ 請確認</span>
+          </div>
+          <div class="card-addr">大埕里大埕</div>
+          <div class="card-title">【買進七股的未來｜光埕｜七股首座電梯華廈】廣告戶</div>
+          <div class="card-price">
+            <span class="price">568 萬</span>
+            <span class="unit">23.39 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 24.28 坪 · 7個月 · 2F~4F/5F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19815933.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 永康區</span>
+            <span class='badge'>低 36%</span>
+          </div>
+          <div class="card-addr">南工街</div>
+          <div class="card-title">做厝事的文森．永康區．獨賣-永康邊間採光小資三房</div>
+          <div class="card-price">
+            <span class="price">598 萬</span>
+            <span class="unit">23.98 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 24.94 坪 · 28年 · 9F/11F
+          </div>
+          <div class='card-optag'>📊 永康區 住宅收藏排名第5名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20307907.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鼓山區</span>
+            <span class='badge'>低 35%</span><span class='badge-red'>↓降6%</span>
+          </div>
+          <div class="card-addr">正德路</div>
+          <div class="card-title">鼓山高中/美術館優質公寓</div>
+          <div class="card-price">
+            <span class="price">496 萬</span>
+            <span class="unit">21.72 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            5房3廳2衛 · 22.84 坪 · 44年 · 5F/5F
+          </div>
+          <div class='card-optag'>📊 4天前降價｜32萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20003998.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 東區</span>
+            <span class='badge'>低 35%</span>
+          </div>
+          <div class="card-addr">崇德十二街</div>
+          <div class="card-title">【最完整介紹】荷蘭家鄉．崇德商圈．三面採光市景三房平車</div>
+          <div class="card-price">
+            <span class="price">850 萬</span>
+            <span class="unit">23.92 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 35.54 坪 · 33年 · 7F/7F
+          </div>
+          
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20303367.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 中西區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge'>低 34%</span>
+          </div>
+          <div class="card-addr">大智街</div>
+          <div class="card-title">做厝事的文森．中西區．河樂廣場免整理漂亮五房透天</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">24.47 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            5房1廳5衛 · 36.29 坪 · 57年 · 1F~2F/3F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20101717.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge'>低 34%</span>
+          </div>
+          <div class="card-addr">南成街</div>
+          <div class="card-title">五甲瑞隆🏆陽台進出明亮３房💯３陽台低公設％🌳輕鬆成家</div>
+          <div class="card-price">
+            <span class="price">668 萬</span>
+            <span class="unit">22.05 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 30.3 坪 · 27年 · 7F/7F
+          </div>
+          <div class='card-optag'>📊 鳳山區活躍榜第7名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20150994.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安南區</span>
+            <span class='badge'>低 30%</span><span class='badge-red'>↓降5%</span>
+          </div>
+          <div class="card-addr">北安路三段</div>
+          <div class="card-title">秒殺!商60摩登輕齡【雙套房平車】~雙衛浴+房間都間間開窗!</div>
+          <div class="card-price">
+            <span class="price">930 萬</span>
+            <span class="unit">26.05 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 35.7 坪 · 7年 · 5F/9F
+          </div>
+          <div class='card-optag'>📊 已降價｜50萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20047700.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 永康區</span>
+            <span class='badge'>低 30%</span>
+          </div>
+          <div class="card-addr">復華五街55巷</div>
+          <div class="card-title">獨家🐦‍🔥近平實大兩房平車華廈</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">26.25 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 38.02 坪 · 2年 · 6F/10F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20308330.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 三民區</span>
+            <span class='badge'>低 29%</span>
+          </div>
+          <div class="card-addr">鼎華路</div>
+          <div class="card-title">698萬買【鼎山家樂福】3房+車位輕軌宅❗</div>
+          <div class="card-price">
+            <span class="price">698 萬</span>
+            <span class="unit">23.73 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 29.42 坪 · 29年 · 4F/19F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20069478.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge'>低 29%</span><span class='badge-red'>↓降35%</span>
+          </div>
+          <div class="card-addr">中崙二路578巷</div>
+          <div class="card-title">🌊阿水◇專約◇中崙成家首選三房雙衛浴</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">23.84 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 37.25 坪 · 30年 · 6F/7F
+          </div>
+          <div class='card-optag'>📊 已降價｜470萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20293734.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 苓雅區</span>
+            <span class='badge'>低 28%</span>
+          </div>
+          <div class="card-addr">建國一路140巷</div>
+          <div class="card-title">⭐近武廟商圈超美三房開窗|含車位</div>
+          <div class="card-price">
+            <span class="price">888 萬</span>
+            <span class="unit">24.0 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 37 坪 · 31年 · 4F/9F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20034968.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 左營區</span>
+            <span class='badge'>低 28%</span>
+          </div>
+          <div class="card-addr">文自路</div>
+          <div class="card-title">✦這是你在找的成家首選｜高鐵國道捷運｜福山商圈｜三房車位學區</div>
+          <div class="card-price">
+            <span class="price">938 萬</span>
+            <span class="unit">24.34 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 38.54 坪 · 26年 · 14F/23F
+          </div>
+          <div class='card-optag'>📊 左營區 住宅熱搜排名第7名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20308838.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 左營區</span>
+            <span class='badge'>低 27%</span>
+          </div>
+          <div class="card-addr">重愛路</div>
+          <div class="card-title">時尚-精品💟938萬💟24.6萬/坪</div>
+          <div class="card-price">
+            <span class="price">938 萬</span>
+            <span class="unit">24.62 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 38.1 坪 · 不詳 · 6F/14F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20295960.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 仁武區</span>
+            <span class='badge'>低 26%</span>
+          </div>
+          <div class="card-addr">大正一街</div>
+          <div class="card-title">🔥獨家仁武🔥【微笑世界】社區最便宜二房平車</div>
+          <div class="card-price">
+            <span class="price">898 萬</span>
+            <span class="unit">24.82 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 36.18 坪 · 3年 · 10F/24F
+          </div>
+          
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20095512.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安南區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge'>低 26%</span><span class='badge-red'>↓降8%</span>
+          </div>
+          <div class="card-addr">海環街6巷</div>
+          <div class="card-title">降價百萬～海環街35.96坪透天~6米路~朝西南~出價談</div>
+          <div class="card-price">
+            <span class="price">990 萬</span>
+            <span class="unit">27.5 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 36 坪 · 46年 · 整棟/2F
+          </div>
+          <div class='card-optag'>📊 已降價｜90萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/24406702.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge'>低 26%</span>
+          </div>
+          <div class="card-addr">萬年七街</div>
+          <div class="card-title">灣裡EVO最美設計師的家溫馨大兩房海景平車</div>
+          <div class="card-price">
+            <span class="price">999 萬</span>
+            <span class="unit">27.27 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 36.64 坪 · 7年 · 15F/15F
+          </div>
+          <div class='card-optag'>📊 南區活躍榜第7名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20238814.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge'>低 26%</span>
+          </div>
+          <div class="card-addr">萬年七街</div>
+          <div class="card-title">灣裡EVO最美設計師的家溫馨大兩房海景平車</div>
+          <div class="card-price">
+            <span class="price">999 萬</span>
+            <span class="unit">27.27 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 36.64 坪 · 7年 · 15F/15F
+          </div>
+          <div class='card-optag'>📊 南區活躍榜第7名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20118810.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 楠梓區</span>
+            <span class='badge'>低 26%</span>
+          </div>
+          <div class="card-addr">加昌路</div>
+          <div class="card-title">專約獨賣【楠梓加昌路｜甲上生活】莒光商圈高機能三房平移車位</div>
+          <div class="card-price">
+            <span class="price">768 萬</span>
+            <span class="unit">24.81 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房1廳1衛 · 30.96 坪 · 29年 · 11F/16F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區3房｜15萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20203823.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 楠梓區</span>
+            <span class='badge'>低 25%</span>
+          </div>
+          <div class="card-addr">朝明路116巷</div>
+          <div class="card-title">近楠梓火車站.屋主真心賣.最低價.二房+平面車位</div>
+          <div class="card-price">
+            <span class="price">890 萬</span>
+            <span class="unit">25.01 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 35.59 坪 · 8年 · 2F/15F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20242378.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 中西區</span>
+            <span class='badge'>低 25%</span>
+          </div>
+          <div class="card-addr">永福路一段68巷</div>
+          <div class="card-title">【新光三越旁】【建興學區】低公設純住家，罕見釋出！</div>
+          <div class="card-price">
+            <span class="price">858 萬</span>
+            <span class="unit">28.03 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 30.61 坪 · 31年 · 6F/6F
+          </div>
+          <div class='card-optag'>📊 中西區 住宅收藏排名第6名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20019948.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 小港區</span>
+            <span class='badge'>低 24%</span>
+          </div>
+          <div class="card-addr">桂誠街</div>
+          <div class="card-title">專約㇑桂林中安商圈㇑高樓陽台進出㇑大兩房㇑家的感覺從這開始</div>
+          <div class="card-price">
+            <span class="price">598 萬</span>
+            <span class="unit">25.58 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 23.38 坪 · 29年 · 9F/12F
+          </div>
+          <div class='card-optag'>📊 小港區 住宅收藏排名第8名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20004204.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge'>低 23%</span>
+          </div>
+          <div class="card-addr">萬年七街</div>
+          <div class="card-title">【最完整介紹】華友聯EVO・次頂高樓面公園海景・輕裝兩房寓</div>
+          <div class="card-price">
+            <span class="price">738 萬</span>
+            <span class="unit">28.37 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 26.01 坪 · 7年 · 14F/15F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區2房｜260萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20266752.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge'>低 21%</span>
+          </div>
+          <div class="card-addr">青年路二段</div>
+          <div class="card-title">鳳山青年國中旁[綠園道]美三房</div>
+          <div class="card-price">
+            <span class="price">836 萬</span>
+            <span class="unit">26.54 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 31.5 坪 · 31年 · 8F/14F
+          </div>
+          <div class='card-optag'>📊 鳳山區 住宅熱搜排名第10名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19787252.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 南區</span>
+            <span class='badge'>低 20%</span>
+          </div>
+          <div class="card-addr">大成路一段</div>
+          <div class="card-title">草頭黃☀️水天青-文化園區旁🏡溫馨✅兩房平車</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">29.33 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 34.03 坪 · 9年 · 7F/7F
+          </div>
+          <div class='card-optag'>📊 南區活躍榜第15名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20336174.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 前鎮區</span>
+            <span class='badge'>低 20%</span>
+          </div>
+          <div class="card-addr">沱江街</div>
+          <div class="card-title">沃｜獅甲捷運宅｜小資最愛低總價｜高樓景觀無擋採光好正兩房</div>
+          <div class="card-price">
+            <span class="price">680 萬</span>
+            <span class="unit">26.75 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 25.42 坪 · 29年 · 22F/27F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20248905.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 三民區</span>
+            <span class='badge'>低 20%</span>
+          </div>
+          <div class="card-addr">褒揚街</div>
+          <div class="card-title">【專約專員】陽明學區/商圈⭕️學區宅兩房⭕️文山⭕️雅舍小品</div>
+          <div class="card-price">
+            <span class="price">498 萬</span>
+            <span class="unit">26.88 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 18.53 坪 · 32年 · 11F/12F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20220261.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 楠梓區</span>
+            <span class='badge'>低 19%</span>
+          </div>
+          <div class="card-addr">清泰路</div>
+          <div class="card-title">楠梓498萬買5+6樓20米清泰路3分鐘土庫家樂福和運動中心</div>
+          <div class="card-price">
+            <span class="price">498 萬</span>
+            <span class="unit">27.01 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳2衛 · 18.44 坪 · 43年 · 5F/5F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20320160.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge'>低 19%</span>
+          </div>
+          <div class="card-addr">頂新五街</div>
+          <div class="card-title">★[專]頂新匯美-高樓層景觀美兩房還附平車</div>
+          <div class="card-price">
+            <span class="price">980 萬</span>
+            <span class="unit">27.12 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 36.13 坪 · 9年 · 15F/15F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/24404210.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 左營區</span>
+            <span class='badge'>低 19%</span><span class='badge-red'>↓降11%</span>
+          </div>
+          <div class="card-addr">光興街</div>
+          <div class="card-title">左營近巨蛋｜明誠大樂｜下樓即公園｜河堤社區｜方正三房</div>
+          <div class="card-price">
+            <span class="price">968 萬</span>
+            <span class="unit">27.38 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 35.36 坪 · 29年 · 4F/19F
+          </div>
+          <div class='card-optag'>📊 已降價｜120萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20200707.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 苓雅區</span>
+            <span class='badge'>低 19%</span>
+          </div>
+          <div class="card-addr">民族二路</div>
+          <div class="card-title">💒專約|未來黃捷Y10彩虹公園採光2房|彾包入住|單純華廈</div>
+          <div class="card-price">
+            <span class="price">698 萬</span>
+            <span class="unit">27.29 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 25.57 坪 · 35年 · 5F/7F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20188558.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 左營區</span>
+            <span class='badge'>低 19%</span><span class='badge-red'>↓降11%</span>
+          </div>
+          <div class="card-addr">光興街</div>
+          <div class="card-title">左營近巨蛋｜明誠大樂｜下樓即公園｜河堤社區｜方正三房</div>
+          <div class="card-price">
+            <span class="price">968 萬</span>
+            <span class="unit">27.38 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 35.36 坪 · 29年 · 4F/19F
+          </div>
+          <div class='card-optag'>📊 已降價｜120萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20038133.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安平區</span>
+            <span class='badge'>低 18%</span>
+          </div>
+          <div class="card-addr">國平北路</div>
+          <div class="card-title">專簽)安平國平重劃區水星光景觀可隔2房+車位</div>
+          <div class="card-price">
+            <span class="price">988 萬</span>
+            <span class="unit">30.61 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            1房2廳1衛 · 32.28 坪 · 4個月 · 15F/26F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區1房｜55萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19877634.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 安南區</span>
+            <span class='badge'>低 17%</span>
+          </div>
+          <div class="card-addr">安和路一段288巷</div>
+          <div class="card-title">☘️安南區安和路全新𝟐房𝟐衛華廈｜近北安・永康・北區商圈</div>
+          <div class="card-price">
+            <span class="price">738 萬</span>
+            <span class="unit">30.89 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳2衛 · 23.89 坪 · 8個月 · 4F/5F
+          </div>
+          <div class='card-optag'>📊 安南區活躍榜第14名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20041025.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 歸仁區</span>
+            <span class='badge'>低 15%</span>
+          </div>
+          <div class="card-addr">大仁街</div>
+          <div class="card-title">🏡【歸仁市中心】首購首選｜全新超值｜正三房含車｜免千萬</div>
+          <div class="card-price">
+            <span class="price">938 萬</span>
+            <span class="unit">31.57 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 29.71 坪 · 2個月 · 2F/6F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區3房｜22萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20297631.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 新市區</span>
+            <span class='badge'>低 15%</span>
+          </div>
+          <div class="card-addr">大營里</div>
+          <div class="card-title">南科特區動工🔥謙福距N.O.區200米｜全室裝潢3房</div>
+          <div class="card-price">
+            <span class="price">999 萬</span>
+            <span class="unit">31.41 萬/坪</span>
+            <span class='market'>市場均價 36.91 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 30.82 坪 · 1年 · 2F/6F
+          </div>
+          <div class='card-optag'>📊 新市區 住宅收藏排名第4名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20207714.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 橋頭區</span>
+            <span class='badge'>低 14%</span>
+          </div>
+          <div class="card-addr">經武路</div>
+          <div class="card-title">專🔥橋頭青埔捷運宅｜康橋國際學校｜兩房兩衛＋車位</div>
+          <div class="card-price">
+            <span class="price">958 萬</span>
+            <span class="unit">28.7 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 33.38 坪 · 7年 · 6F/24F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區2房｜41萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20306673.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 左營區</span>
+            <span class='badge'>低 14%</span>
+          </div>
+          <div class="card-addr">新上街</div>
+          <div class="card-title">巨蛋商圈捷運宅三樓公寓</div>
+          <div class="card-price">
+            <span class="price">550 萬</span>
+            <span class="unit">28.96 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 18.99 坪 · 45年 · 3F/5F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20247768.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 苓雅區</span>
+            <span class='badge'>低 13%</span>
+          </div>
+          <div class="card-addr">廣東一街69巷</div>
+          <div class="card-title">🎉文化中心二樓翻修公寓</div>
+          <div class="card-price">
+            <span class="price">668 萬</span>
+            <span class="unit">29.3 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳1衛 · 22.8 坪 · 47年 · 2F/5F
+          </div>
+          <div class='card-optag'>📊 苓雅區 住宅收藏排名第1名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20198174.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 橋頭區</span>
+            <span class='badge'>低 11%</span>
+          </div>
+          <div class="card-addr">經武路1130巷</div>
+          <div class="card-title">時尚/788萬‼經武路/高雄新市鎮</div>
+          <div class="card-price">
+            <span class="price">788 萬</span>
+            <span class="unit">29.93 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 26.33 坪 · 5年 · 14F/15F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區2房｜80萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19850359.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge'>低 11%</span><span class='badge-red'>↓降5%</span>
+          </div>
+          <div class="card-addr">高鳳一路</div>
+          <div class="card-title">租不如買🏆超大客廳大２房🌳３陽台雙面通風採光💯馬上預約</div>
+          <div class="card-price">
+            <span class="price">788 萬</span>
+            <span class="unit">29.92 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 26.34 坪 · 11年 · 6F/15F
+          </div>
+          <div class='card-optag'>📊 已降價｜40萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19884465.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 三民區</span>
+            <span class='badge'>低 10%</span><span class='badge-red'>↓降4%</span>
+          </div>
+          <div class="card-addr">鼎力路</div>
+          <div class="card-title">房仲豪⭐嚴選｜大降價｜天天新｜文鼎苑｜崑庭建設｜美妝兩房車位</div>
+          <div class="card-price">
+            <span class="price">858 萬</span>
+            <span class="unit">30.15 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 24.62 坪 · 14年 · 9F/15F
+          </div>
+          <div class='card-optag'>📊 已降價｜40萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19945164.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 前鎮區</span>
+            <span class='badge'>低 10%</span><span class='badge-red'>↓降1%</span>
+          </div>
+          <div class="card-addr">新光路</div>
+          <div class="card-title">亞洲新灣區捷運宅~景觀二房+超大平面車位</div>
+          <div class="card-price">
+            <span class="price">880 萬</span>
+            <span class="unit">30.2 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 42.31 坪 · 27年 · 27F/39F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20235565.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 鼓山區</span>
+            <span class='badge'>低 9%</span>
+          </div>
+          <div class="card-addr">馬卡道路</div>
+          <div class="card-title">全美術館🌟998萬最便宜2+1房車位🌟三面採光衛浴開窗</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">30.38 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 32.85 坪 · 20年 · 2F/2F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20007583.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 燕巢區</span>
+            <span class='badge'>低 9%</span><span class='badge-red'>↓降9%</span>
+          </div>
+          <div class="card-addr">海成北街</div>
+          <div class="card-title">賠售💥專約承辦💥橋科3分鐘💥CP值最高的電梯華廈兩房</div>
+          <div class="card-price">
+            <span class="price">638 萬</span>
+            <span class="unit">30.7 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 20.78 坪 · 7個月 · 2F/5F
+          </div>
+          <div class='card-optag'>📊 燕巢區 住宅收藏排名第1名</div>
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20170768.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 北區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span>
+          </div>
+          <div class="card-addr">公園路1092巷</div>
+          <div class="card-title">🏠北區奇美醫院｜臨12米道路｜邊間透天店住🏠</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">34.73 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳2衛 · 28.74 坪 · 50年 · 整棟/3F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20173736.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 三民區</span>
+            <span class='badge-red'>↓降5%</span>
+          </div>
+          <div class="card-addr">順昌街</div>
+          <div class="card-title">鼎山家樂福商圈｜珍稀2房2衛｜平移車位輕軌宅</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">32.22 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 30.97 坪 · 2年 · 10F/15F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區2房｜85萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20249581.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 楠梓區</span>
+            
+          </div>
+          <div class="card-addr">德民路820巷</div>
+          <div class="card-title">超越100|時尚⚡738萬⚡西南朝向</div>
+          <div class="card-price">
+            <span class="price">738 萬</span>
+            <span class="unit">32.13 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 22.97 坪 · 15年 · 8F/15F
+          </div>
+          <div class='card-optag'>📊 楠梓區 住宅熱搜排名第6名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20233917.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 前金區</span>
+            
+          </div>
+          <div class="card-addr">允文街</div>
+          <div class="card-title">漢神百貨精品小豪宅</div>
+          <div class="card-price">
+            <span class="price">538 萬</span>
+            <span class="unit">32.12 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            1房1廳1衛 · 16.75 坪 · 20年 · 5F/15F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區1房｜15萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20249581.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 楠梓區</span>
+            
+          </div>
+          <div class="card-addr">德民路820巷</div>
+          <div class="card-title">超越100|時尚⚡738萬⚡西南朝向</div>
+          <div class="card-price">
+            <span class="price">738 萬</span>
+            <span class="unit">32.13 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 22.97 坪 · 15年 · 8F/15F
+          </div>
+          <div class='card-optag'>📊 楠梓區 住宅熱搜排名第6名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/24371444.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 鳥松區</span>
+            
+          </div>
+          <div class="card-addr">明湖路</div>
+          <div class="card-title">澄清湖「第一景」三房面湖美景房</div>
+          <div class="card-price">
+            <span class="price">988 萬</span>
+            <span class="unit">32.33 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 30.56 坪 · 28年 · 6F/10F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區3房｜100萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20296706.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 鳥松區</span>
+            
+          </div>
+          <div class="card-addr">明湖路</div>
+          <div class="card-title">澄清湖「第一景」三房面湖美景房</div>
+          <div class="card-price">
+            <span class="price">988 萬</span>
+            <span class="unit">32.33 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            3房2廳2衛 · 30.56 坪 · 28年 · 6F/10F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區3房｜100萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20063654.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 楠梓區</span>
+            
+          </div>
+          <div class="card-addr">後昌新路3巷</div>
+          <div class="card-title">德民後昌【若森】美裝潢大兩房楠梓加工區｜台積宅</div>
+          <div class="card-price">
+            <span class="price">898 萬</span>
+            <span class="unit">39.25 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 22.88 坪 · 1年 · 4F/5F
+          </div>
+          
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19773750.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 楠梓區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span><span class='badge-red'>↓降22%</span>
+          </div>
+          <div class="card-addr">樂群路98巷</div>
+          <div class="card-title">您出價我努力談//楠梓區油廠站加工區站雙捷運邊間透天</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">37.82 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            4房2廳3衛 · 26.39 坪 · 41年 · 整棟/1F
+          </div>
+          <div class='card-optag'>📊 已降價｜290萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20253400.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 仁武區</span>
+            
+          </div>
+          <div class="card-addr">京吉二路</div>
+          <div class="card-title">低於實登★全新公園雙衛2房平車</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">33.98 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 29.37 坪 · 4個月 · 13F/14F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區2房｜316萬</div>
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20178738.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span>
+          </div>
+          <div class="card-addr">文雅街22巷</div>
+          <div class="card-title">高雄必看！專任！稀有釋出黃金透天厝㊙️中信蜜蜜🥇幫您談</div>
+          <div class="card-price">
+            <span class="price">938 萬</span>
+            <span class="unit">57.02 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            開放式格局 · 16.45 坪 · 51年 · 1F/1F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20063603.html','_blank')">
+          <div class="card-top">
+            <span class="tag ">急售</span>
+            <span class="region">高雄市 鹽埕區</span>
+            
+          </div>
+          <div class="card-addr">五福四路</div>
+          <div class="card-title">45.2萬/坪~2房1廳1衛</div>
+          <div class="card-price">
+            <span class="price">598 萬</span>
+            <span class="unit">45.23 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 13.22 坪 · 46年 · 6F/9F
+          </div>
+          
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20243892.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 前金區</span>
+            
+          </div>
+          <div class="card-addr">自立橫路</div>
+          <div class="card-title">捷運前金站+美麗島站｜雙捷運次高樓邊間採光景觀2房</div>
+          <div class="card-price">
+            <span class="price">998 萬</span>
+            <span class="unit">39.98 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 24.96 坪 · 20年 · 14F/15F
+          </div>
+          <div class='card-optag'>📊 前金區 住宅收藏排名第1名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20105475.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 左營區</span>
+            <span class='badge-red'>↓降1%</span>
+          </div>
+          <div class="card-addr">文川路</div>
+          <div class="card-title">HANS*衛浴開窗*三鐵共構|文川苑高樓層溫馨兩房</div>
+          <div class="card-price">
+            <span class="price">928 萬</span>
+            <span class="unit">46.92 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 19.78 坪 · 3年 · 1F/14F
+          </div>
+          <div class='card-optag'>📊 總價低於同社區2房｜70萬</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20110532.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 左營區</span>
+            
+          </div>
+          <div class="card-addr">正心街</div>
+          <div class="card-title">㊣R14巨蛋裕誠商圈精品套房平移車位捷運宅</div>
+          <div class="card-price">
+            <span class="price">698 萬</span>
+            <span class="unit">46.56 萬/坪</span>
+            <span class='market'>市場均價 33.62 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            1房1廳1衛 · 14.99 坪 · 14年 · 14F/15F
+          </div>
+          <div class='card-optag'>📊 左營區 住宅收藏排名第1名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20146032.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 前金區</span>
+            
+          </div>
+          <div class="card-addr">自強一路52巷</div>
+          <div class="card-title">前金區｜輕鬆成家｜南高雄精華區一樓美寓</div>
+          <div class="card-price">
+            <span class="price">718 萬</span>
+            <span class="unit">45.85 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳1衛 · 15.66 坪 · 44年 · 1F/1F
+          </div>
+          <div class='card-optag'>📊 前金區 住宅熱搜排名第3名</div>
+        </div>
+        <div class="card card-townhouse" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/19878312.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 鳳山區</span>
+            <span class='badge-townhouse'>🏘️ 透天厝</span>
+          </div>
+          <div class="card-addr">南正一路2巷</div>
+          <div class="card-title">五甲南成國小家樂福邊間大透天厝</div>
+          <div class="card-price">
+            <span class="price">950 萬</span>
+            <span class="unit">40.72 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            5房2廳2衛 · 23.33 坪 · 48年 · 整棟/2F
+          </div>
+          <div class='card-optag'>📊 鳳山區 住宅熱搜排名第8名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20105767.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">高雄市 前金區</span>
+            
+          </div>
+          <div class="card-addr">河東路</div>
+          <div class="card-title">愛情河左岸-震後▶23.63坪</div>
+          <div class="card-price">
+            <span class="price">966 萬</span>
+            <span class="unit">40.88 萬/坪</span>
+            <span class='market'>市場均價 33.51 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房1廳1衛 · 23.63 坪 · 1年 · 16F/32F
+          </div>
+          <div class='card-optag'>📊 前金區 住宅收藏排名第5名</div>
+        </div>
+        <div class="card" onclick="window.open('https://sale.591.com.tw/home/house/detail/2/20318827.html','_blank')">
+          <div class="card-top">
+            <span class="tag tag-low">低於市價</span>
+            <span class="region">台南市 永康區</span>
+            
+          </div>
+          <div class="card-addr">富強路二段121巷</div>
+          <div class="card-title">永康鄰語堂2兩房2衛平面車位</div>
+          <div class="card-price">
+            <span class="price">858 萬</span>
+            <span class="unit">40.21 萬/坪</span>
+            <span class='market'>市場均價 37.26 萬/坪</span>
+          </div>
+          <div class="card-meta">
+            2房2廳2衛 · 21.34 坪 · 4年 · 5F/5F
+          </div>
+          
+        </div>
+  </div>
+  <div class="updated">更新時間：2026-06-06 01:32 · 資料來源：591 售屋網</div>
+</div>
+
+<script>
+var map = L.map('map').setView([22.85, 120.27], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 18
+}).addTo(map);
+
+
+        L.circleMarker([22.85639817951923, 120.26281148502012], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 路竹區 潭墘路</b><br><span style='color:#e74c3c;font-weight:bold'>870 萬</span> (8.84 萬/坪)<br>8房2廳4衛 · 98.47 坪 · 25年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>路竹區 住宅收藏排名第1名</span><br><b style='color:#e74c3c'>低於市場行情 74%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19959637.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.21868496305602, 120.17307204685679], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 學甲區 信義路</b><br><span style='color:#e74c3c;font-weight:bold'>698 萬</span> (10.91 萬/坪)<br>6房2廳4衛 · 64 坪 · 32年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>學甲區 住宅收藏排名第1名</span><br><b style='color:#e74c3c'>低於市場行情 70%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19949338.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.986236210659612, 120.22588494767237], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>東區 裕農路389巷</b><br><span style='color:#e74c3c;font-weight:bold'>568 萬</span> (13.99 萬/坪)<br>3房2廳2衛 · 40.61 坪 · 41年<br><b style='color:#e74c3c'>低於市場行情 62%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20136918.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.970828324232517, 120.2009298011945], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 大成路二段</b><br><span style='color:#e74c3c;font-weight:bold'>448 萬</span> (14.82 萬/坪)<br>3房2廳1衛 · 30.23 坪 · 42年<br><b style='color:#e74c3c'>低於市場行情 60%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20151870.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.655853374509046, 120.27189040695004], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鼓山區 九如四路1131巷</b><br><span style='color:#e74c3c;font-weight:bold'>588 萬</span> (14.65 萬/坪)<br>4房2廳2衛 · 40.14 坪 · 40年<br><b style='color:#e74c3c'>低於市場行情 56%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20299301.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.31249879190717, 120.3128317515034], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 新營區 明清三街</b><br><span style='color:#e74c3c;font-weight:bold'>898 萬</span> (17.62 萬/坪)<br>4房2廳3衛 · 50.95 坪 · 34年<br><b style='color:#e74c3c'>低於市場行情 53%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20149846.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.303978979551253, 120.31754338699601], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 新營區 明清三街</b><br><span style='color:#e74c3c;font-weight:bold'>898 萬</span> (17.62 萬/坪)<br>4房2廳3衛 · 50.95 坪 · 34年<br><b style='color:#e74c3c'>低於市場行情 53%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20149903.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.652723113692677, 120.27011236029288], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鼓山區 九如四路1382巷</b><br><span style='color:#e74c3c;font-weight:bold'>488 萬</span> (16.49 萬/坪)<br>3房2廳2衛 · 29.59 坪 · 40年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>鼓山區 住宅熱搜排名第6名</span><br><b style='color:#e74c3c'>低於市場行情 51%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20281821.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.993681192728577, 120.1626669856587], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>安平區 建平八街</b><br><span style='color:#e74c3c;font-weight:bold'>618 萬</span> (19.02 萬/坪)<br>3房2廳2衛 · 32.49 坪 · 29年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區3房｜180萬</span><br><b style='color:#e74c3c'>低於市場行情 49%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20274292.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.625780032124364, 120.354729709649], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳳山區 青年路二段</b><br><span style='color:#e74c3c;font-weight:bold'>998 萬</span> (17.73 萬/坪)<br>4房2廳2衛 · 56.27 坪 · 35年<br><b style='color:#e74c3c'>低於市場行情 47%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19937178.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.03836874917824, 120.24532483972173], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>永康區 埔聖街75巷</b><br><span style='color:#e74c3c;font-weight:bold'>800 萬</span> (19.76 萬/坪)<br>3房2廳2衛 · 40.49 坪 · 29年<br><b style='color:#e74c3c'>低於市場行情 47%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20311250.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.651377146244357, 120.35885007915655], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳥松區 松埔北巷</b><br><span style='color:#e74c3c;font-weight:bold'>698 萬</span> (17.84 萬/坪)<br>3房2廳2衛 · 39.12 坪 · 28年<br><b style='color:#e74c3c'>低於市場行情 47%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20170404.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.660013684361395, 120.36136824810629], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳥松區 松埔北巷</b><br><span style='color:#e74c3c;font-weight:bold'>638 萬</span> (18.1 萬/坪)<br>2房2廳2衛 · 35.25 坪 · 31年<br><b style='color:#e74c3c'>低於市場行情 46%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20314500.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.621323110251424, 120.3238525362059], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>苓雅區 凱旋三路505巷</b><br><span style='color:#e74c3c;font-weight:bold'>338 萬</span> (18.12 萬/坪)<br>3房2廳1衛 · 18.65 坪 · 47年<br><b style='color:#e74c3c'>低於市場行情 46%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20314555.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.99057129986875, 120.15906310415733], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>安平區 慶平路</b><br><span style='color:#e74c3c;font-weight:bold'>868 萬</span> (21.13 萬/坪)<br>3房2廳2衛 · 41.07 坪 · 32年<br><b style='color:#e74c3c'>低於市場行情 43%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20338443.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.99806149129509, 120.19760904203744], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>中西區 武聖路69巷</b><br><span style='color:#e74c3c;font-weight:bold'>688 萬</span> (21.4 萬/坪)<br>2房2廳2衛 · 32.15 坪 · 31年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>中西區 住宅收藏排名第4名</span><br><b style='color:#e74c3c'>低於市場行情 43%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20195289.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.73801398899735, 120.35285963287095], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>大社區 翠屏路84巷</b><br><span style='color:#e74c3c;font-weight:bold'>238 萬</span> (19.46 萬/坪)<br>1房1衛 · 12.23 坪 · 32年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜30萬</span><br><b style='color:#e74c3c'>低於市場行情 42%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20176929.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.98687421348796, 120.23065073102617], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>東區 中華東路二段295巷</b><br><span style='color:#e74c3c;font-weight:bold'>758 萬</span> (21.7 萬/坪)<br>3房2廳2衛 · 34.94 坪 · 31年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區3房｜441萬</span><br><b style='color:#e74c3c'>低於市場行情 41%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20144894.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.04701055691883, 120.17816956727407], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 安南區 塩田路395巷</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (22.41 萬/坪)<br>4房2廳3衛 · 39.62 坪 · 19年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜862萬</span><br><b style='color:#e74c3c'>低於市場行情 40%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20238768.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.992365333759174, 120.22275461572922], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>東區 大同路二段</b><br><span style='color:#e74c3c;font-weight:bold'>886 萬</span> (22.27 萬/坪)<br>2房1廳1衛 · 39.78 坪 · 31年<br><b style='color:#e74c3c'>低於市場行情 40%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20067985.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.99613975146022, 120.16391778955561], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>安平區 建平一街224巷</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (22.55 萬/坪)<br>4房2廳2衛 · 39.38 坪 · 30年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>安平區活躍榜第14名</span><br><b style='color:#e74c3c'>低於市場行情 40%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19787227.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.99511246510429, 120.23101289020187], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>東區 東智街</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (22.46 萬/坪)<br>3房2廳2衛 · 39.53 坪 · 26年<br><b style='color:#e74c3c'>低於市場行情 39%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20278858.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.9908470731557, 120.22168600322209], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>東區 崇德路917巷</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (22.48 萬/坪)<br>3房2廳2衛 · 39.5 坪 · 26年<br><b style='color:#e74c3c'>低於市場行情 39%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20017459.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.973894300681014, 120.19406640145489], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 萬年七街</b><br><span style='color:#e74c3c;font-weight:bold'>998 萬</span> (22.86 萬/坪)<br>2房2廳2衛 · 43.66 坪 · 8年<br><b style='color:#e74c3c'>低於市場行情 38%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20317157.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.96857951095892, 120.19651426336749], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 萬年七街</b><br><span style='color:#e74c3c;font-weight:bold'>998 萬</span> (22.89 萬/坪)<br>2房2廳2衛 · 43.6 坪 · 7年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>5天前降價｜42萬</span><br><b style='color:#e74c3c'>低於市場行情 38%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20304601.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.14794575500202, 120.10403647648698], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>七股區 大埕里大埕</b><br><span style='color:#e74c3c;font-weight:bold'>568 萬</span> (23.39 萬/坪)<br>2房2廳1衛 · 24.28 坪 · 7個月<br><b style='color:#e74c3c'>低於市場行情 37%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20324745.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.03335716490593, 120.24604782818682], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>永康區 南工街</b><br><span style='color:#e74c3c;font-weight:bold'>598 萬</span> (23.98 萬/坪)<br>3房2廳2衛 · 24.94 坪 · 28年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>永康區 住宅收藏排名第5名</span><br><b style='color:#e74c3c'>低於市場行情 36%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19815933.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.659657320794505, 120.2729345727007], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鼓山區 正德路</b><br><span style='color:#e74c3c;font-weight:bold'>496 萬</span> (21.72 萬/坪)<br>5房3廳2衛 · 22.84 坪 · 44年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>4天前降價｜32萬</span><br><b style='color:#e74c3c'>低於市場行情 35%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20307907.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.994765825487498, 120.22844246167882], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>東區 崇德十二街</b><br><span style='color:#e74c3c;font-weight:bold'>850 萬</span> (23.92 萬/坪)<br>3房2廳2衛 · 35.54 坪 · 33年<br><b style='color:#e74c3c'>低於市場行情 35%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20003998.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.997346199008074, 120.19635141155557], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 中西區 大智街</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (24.47 萬/坪)<br>5房1廳5衛 · 36.29 坪 · 57年<br><b style='color:#e74c3c'>低於市場行情 34%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20303367.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.623132797830646, 120.35538155560117], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳳山區 南成街</b><br><span style='color:#e74c3c;font-weight:bold'>668 萬</span> (22.05 萬/坪)<br>3房2廳2衛 · 30.3 坪 · 27年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>鳳山區活躍榜第7名</span><br><b style='color:#e74c3c'>低於市場行情 34%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20101717.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.04993677362033, 120.17923590489083], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>安南區 北安路三段</b><br><span style='color:#e74c3c;font-weight:bold'>930 萬</span> (26.05 萬/坪)<br>2房2廳2衛 · 35.7 坪 · 7年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜50萬</span><br><b style='color:#e74c3c'>低於市場行情 30%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20150994.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.03648721407492, 120.24729469331069], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>永康區 復華五街55巷</b><br><span style='color:#e74c3c;font-weight:bold'>998 萬</span> (26.25 萬/坪)<br>2房2廳1衛 · 38.02 坪 · 2年<br><b style='color:#e74c3c'>低於市場行情 30%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20047700.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.64963701603396, 120.31638631004904], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>三民區 鼎華路</b><br><span style='color:#e74c3c;font-weight:bold'>698 萬</span> (23.73 萬/坪)<br>3房2廳2衛 · 29.42 坪 · 29年<br><b style='color:#e74c3c'>低於市場行情 29%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20308330.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62704366783525, 120.35887416199208], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳳山區 中崙二路578巷</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (23.84 萬/坪)<br>3房2廳2衛 · 37.25 坪 · 30年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜470萬</span><br><b style='color:#e74c3c'>低於市場行情 29%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20069478.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62869807060219, 120.33038852744562], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>苓雅區 建國一路140巷</b><br><span style='color:#e74c3c;font-weight:bold'>888 萬</span> (24.0 萬/坪)<br>3房2廳2衛 · 37 坪 · 31年<br><b style='color:#e74c3c'>低於市場行情 28%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20293734.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.69255419329046, 120.299762983158], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 文自路</b><br><span style='color:#e74c3c;font-weight:bold'>938 萬</span> (24.34 萬/坪)<br>3房2廳2衛 · 38.54 坪 · 26年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>左營區 住宅熱搜排名第7名</span><br><b style='color:#e74c3c'>低於市場行情 28%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20034968.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.687932735607575, 120.29546597442811], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 重愛路</b><br><span style='color:#e74c3c;font-weight:bold'>938 萬</span> (24.62 萬/坪)<br>3房2廳2衛 · 38.1 坪 · 不詳<br><b style='color:#e74c3c'>低於市場行情 27%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20308838.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.699325761285966, 120.35200634163303], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>仁武區 大正一街</b><br><span style='color:#e74c3c;font-weight:bold'>898 萬</span> (24.82 萬/坪)<br>2房1廳1衛 · 36.18 坪 · 3年<br><b style='color:#e74c3c'>低於市場行情 26%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20295960.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.05142014098492, 120.17616532773303], {
+            radius: 20,
+            color: '#8e44ad', fillColor: '#e74c3c', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 安南區 海環街6巷</b><br><span style='color:#e74c3c;font-weight:bold'>990 萬</span> (27.5 萬/坪)<br>3房2廳2衛 · 36 坪 · 46年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜90萬</span><br><b style='color:#e74c3c'>低於市場行情 26%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20095512.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.966306103637702, 120.19288214858977], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 萬年七街</b><br><span style='color:#e74c3c;font-weight:bold'>999 萬</span> (27.27 萬/坪)<br>2房2廳1衛 · 36.64 坪 · 7年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>南區活躍榜第7名</span><br><b style='color:#e74c3c'>低於市場行情 26%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/24406702.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.971109046829042, 120.19541176895308], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 萬年七街</b><br><span style='color:#e74c3c;font-weight:bold'>999 萬</span> (27.27 萬/坪)<br>2房2廳1衛 · 36.64 坪 · 7年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>南區活躍榜第7名</span><br><b style='color:#e74c3c'>低於市場行情 26%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20238814.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.72931476712749, 120.31285158529248], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>楠梓區 加昌路</b><br><span style='color:#e74c3c;font-weight:bold'>768 萬</span> (24.81 萬/坪)<br>3房1廳1衛 · 30.96 坪 · 29年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區3房｜15萬</span><br><b style='color:#e74c3c'>低於市場行情 26%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20118810.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.72634465730121, 120.31185203342832], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>楠梓區 朝明路116巷</b><br><span style='color:#e74c3c;font-weight:bold'>890 萬</span> (25.01 萬/坪)<br>2房2廳1衛 · 35.59 坪 · 8年<br><b style='color:#e74c3c'>低於市場行情 25%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20203823.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.996425921647383, 120.19240277885362], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>中西區 永福路一段68巷</b><br><span style='color:#e74c3c;font-weight:bold'>858 萬</span> (28.03 萬/坪)<br>3房2廳2衛 · 30.61 坪 · 31年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>中西區 住宅收藏排名第6名</span><br><b style='color:#e74c3c'>低於市場行情 25%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20242378.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.550969889652738, 120.35473855914738], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>小港區 桂誠街</b><br><span style='color:#e74c3c;font-weight:bold'>598 萬</span> (25.58 萬/坪)<br>2房1廳1衛 · 23.38 坪 · 29年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>小港區 住宅收藏排名第8名</span><br><b style='color:#e74c3c'>低於市場行情 24%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20019948.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.972629468982838, 120.20108097228588], {
+            radius: 16,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 萬年七街</b><br><span style='color:#e74c3c;font-weight:bold'>738 萬</span> (28.37 萬/坪)<br>2房2廳1衛 · 26.01 坪 · 7年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區2房｜260萬</span><br><b style='color:#e74c3c'>低於市場行情 23%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20004204.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.627078003085245, 120.35646733206647], {
+            radius: 15,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳳山區 青年路二段</b><br><span style='color:#e74c3c;font-weight:bold'>836 萬</span> (26.54 萬/坪)<br>3房2廳2衛 · 31.5 坪 · 31年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>鳳山區 住宅熱搜排名第10名</span><br><b style='color:#e74c3c'>低於市場行情 21%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20266752.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.973616359967913, 120.19779703667746], {
+            radius: 15,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>南區 大成路一段</b><br><span style='color:#e74c3c;font-weight:bold'>998 萬</span> (29.33 萬/坪)<br>2房2廳1衛 · 34.03 坪 · 9年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>南區活躍榜第15名</span><br><b style='color:#e74c3c'>低於市場行情 20%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19787252.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.57976340767193, 120.31646468247196], {
+            radius: 15,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>前鎮區 沱江街</b><br><span style='color:#e74c3c;font-weight:bold'>680 萬</span> (26.75 萬/坪)<br>2房2廳1衛 · 25.42 坪 · 29年<br><b style='color:#e74c3c'>低於市場行情 20%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20336174.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.649581644918204, 120.31151738253301], {
+            radius: 15,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>三民區 褒揚街</b><br><span style='color:#e74c3c;font-weight:bold'>498 萬</span> (26.88 萬/坪)<br>2房2廳1衛 · 18.53 坪 · 32年<br><b style='color:#e74c3c'>低於市場行情 20%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20248905.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.734130434714245, 120.30742719234709], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>楠梓區 清泰路</b><br><span style='color:#e74c3c;font-weight:bold'>498 萬</span> (27.01 萬/坪)<br>4房2廳2衛 · 18.44 坪 · 43年<br><b style='color:#e74c3c'>低於市場行情 19%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20220261.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62331364312534, 120.3592952240059], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳳山區 頂新五街</b><br><span style='color:#e74c3c;font-weight:bold'>980 萬</span> (27.12 萬/坪)<br>2房2廳1衛 · 36.13 坪 · 9年<br><b style='color:#e74c3c'>低於市場行情 19%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20320160.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.69266541463728, 120.29995540244785], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 光興街</b><br><span style='color:#e74c3c;font-weight:bold'>968 萬</span> (27.38 萬/坪)<br>3房2廳2衛 · 35.36 坪 · 29年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜120萬</span><br><b style='color:#e74c3c'>低於市場行情 19%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/24404210.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62396696960312, 120.32970558546205], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>苓雅區 民族二路</b><br><span style='color:#e74c3c;font-weight:bold'>698 萬</span> (27.29 萬/坪)<br>2房2廳1衛 · 25.57 坪 · 35年<br><b style='color:#e74c3c'>低於市場行情 19%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20200707.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.686793455299888, 120.29210576977214], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 光興街</b><br><span style='color:#e74c3c;font-weight:bold'>968 萬</span> (27.38 萬/坪)<br>3房2廳2衛 · 35.36 坪 · 29年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜120萬</span><br><b style='color:#e74c3c'>低於市場行情 19%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20188558.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.98835101183286, 120.16477949934793], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>安平區 國平北路</b><br><span style='color:#e74c3c;font-weight:bold'>988 萬</span> (30.61 萬/坪)<br>1房2廳1衛 · 32.28 坪 · 4個月<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區1房｜55萬</span><br><b style='color:#e74c3c'>低於市場行情 18%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20038133.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.047725516549875, 120.17977936668109], {
+            radius: 14,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>安南區 安和路一段288巷</b><br><span style='color:#e74c3c;font-weight:bold'>738 萬</span> (30.89 萬/坪)<br>2房1廳2衛 · 23.89 坪 · 8個月<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>安南區活躍榜第14名</span><br><b style='color:#e74c3c'>低於市場行情 17%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19877634.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.964841681791118, 120.27681516093443], {
+            radius: 13,
+            color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>歸仁區 大仁街</b><br><span style='color:#e74c3c;font-weight:bold'>938 萬</span> (31.57 萬/坪)<br>3房2廳2衛 · 29.71 坪 · 2個月<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區3房｜22萬</span><br><b style='color:#e74c3c'>低於市場行情 15%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20041025.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.08335129829859, 120.28679889733682], {
+            radius: 13,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>新市區 大營里</b><br><span style='color:#e67e22;font-weight:bold'>999 萬</span> (31.41 萬/坪)<br>3房2廳2衛 · 30.82 坪 · 1年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>新市區 住宅收藏排名第4名</span><br><b style='color:#e67e22'>低於市場行情 15%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20297631.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.74853467887037, 120.29908878111529], {
+            radius: 13,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>橋頭區 經武路</b><br><span style='color:#e67e22;font-weight:bold'>958 萬</span> (28.7 萬/坪)<br>2房2廳2衛 · 33.38 坪 · 7年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區2房｜41萬</span><br><b style='color:#e67e22'>低於市場行情 14%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20207714.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.686938973554053, 120.2967925109765], {
+            radius: 13,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 新上街</b><br><span style='color:#e67e22;font-weight:bold'>550 萬</span> (28.96 萬/坪)<br>3房2廳2衛 · 18.99 坪 · 45年<br><b style='color:#e67e22'>低於市場行情 14%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20306673.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.622919879872715, 120.32579115298876], {
+            radius: 12,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>苓雅區 廣東一街69巷</b><br><span style='color:#e67e22;font-weight:bold'>668 萬</span> (29.3 萬/坪)<br>3房2廳1衛 · 22.8 坪 · 47年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>苓雅區 住宅收藏排名第1名</span><br><b style='color:#e67e22'>低於市場行情 13%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20247768.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.75279684940741, 120.29964019504465], {
+            radius: 12,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>橋頭區 經武路1130巷</b><br><span style='color:#e67e22;font-weight:bold'>788 萬</span> (29.93 萬/坪)<br>2房1廳1衛 · 26.33 坪 · 5年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區2房｜80萬</span><br><b style='color:#e67e22'>低於市場行情 11%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20198174.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62897652518268, 120.35407758691116], {
+            radius: 12,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳳山區 高鳳一路</b><br><span style='color:#e67e22;font-weight:bold'>788 萬</span> (29.92 萬/坪)<br>2房2廳1衛 · 26.34 坪 · 11年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜40萬</span><br><b style='color:#e67e22'>低於市場行情 11%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19850359.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.65471450039649, 120.31299723470346], {
+            radius: 11,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>三民區 鼎力路</b><br><span style='color:#e67e22;font-weight:bold'>858 萬</span> (30.15 萬/坪)<br>2房1廳1衛 · 24.62 坪 · 14年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜40萬</span><br><b style='color:#e67e22'>低於市場行情 10%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19884465.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.585385375784387, 120.32191293007934], {
+            radius: 11,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>前鎮區 新光路</b><br><span style='color:#e67e22;font-weight:bold'>880 萬</span> (30.2 萬/坪)<br>2房1廳1衛 · 42.31 坪 · 27年<br><b style='color:#e67e22'>低於市場行情 10%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/19945164.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.6562616081605, 120.27646423649993], {
+            radius: 11,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鼓山區 馬卡道路</b><br><span style='color:#e67e22;font-weight:bold'>998 萬</span> (30.38 萬/坪)<br>2房1廳1衛 · 32.85 坪 · 20年<br><b style='color:#e67e22'>低於市場行情 9%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20235565.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.78607916156801, 120.36041727659456], {
+            radius: 11,
+            color: '#e67e22', fillColor: '#e67e22', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>燕巢區 海成北街</b><br><span style='color:#e67e22;font-weight:bold'>638 萬</span> (30.7 萬/坪)<br>2房2廳1衛 · 20.78 坪 · 7個月<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>燕巢區 住宅收藏排名第1名</span><br><b style='color:#e67e22'>低於市場行情 9%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20007583.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.016311222146513, 120.2118336980033], {
+            radius: 14,
+            color: '#8e44ad', fillColor: '#f1c40f', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 北區 公園路1092巷</b><br><span style='color:#f1c40f;font-weight:bold'>998 萬</span> (34.73 萬/坪)<br>4房2廳2衛 · 28.74 坪 · 50年<br><b style='color:#f1c40f'>低於市場行情 7%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20170768.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.647123222360076, 120.31452722338238], {
+            radius: 9,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>三民區 順昌街</b><br><span style='color:#f1c40f;font-weight:bold'>998 萬</span> (32.22 萬/坪)<br>2房2廳2衛 · 30.97 坪 · 2年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區2房｜85萬</span><br><b style='color:#f1c40f'>低於市場行情 4%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20173736.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.726877530900524, 120.30827367347194], {
+            radius: 9,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>楠梓區 德民路820巷</b><br><span style='color:#f1c40f;font-weight:bold'>738 萬</span> (32.13 萬/坪)<br>2房1廳1衛 · 22.97 坪 · 15年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>楠梓區 住宅熱搜排名第6名</span><br><b style='color:#f1c40f'>低於市場行情 4%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20249581.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.630343550507064, 120.29898908168984], {
+            radius: 9,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>前金區 允文街</b><br><span style='color:#f1c40f;font-weight:bold'>538 萬</span> (32.12 萬/坪)<br>1房1廳1衛 · 16.75 坪 · 20年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區1房｜15萬</span><br><b style='color:#f1c40f'>低於市場行情 4%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20233917.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.72634792316103, 120.3162621181311], {
+            radius: 9,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>楠梓區 德民路820巷</b><br><span style='color:#f1c40f;font-weight:bold'>738 萬</span> (32.13 萬/坪)<br>2房1廳1衛 · 22.97 坪 · 15年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>楠梓區 住宅熱搜排名第6名</span><br><b style='color:#f1c40f'>低於市場行情 4%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20249581.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.657065734377987, 120.36357167524095], {
+            radius: 9,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳥松區 明湖路</b><br><span style='color:#f1c40f;font-weight:bold'>988 萬</span> (32.33 萬/坪)<br>3房2廳2衛 · 30.56 坪 · 28年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區3房｜100萬</span><br><b style='color:#f1c40f'>低於市場行情 4%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/24371444.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.65588899036548, 120.36468723328996], {
+            radius: 9,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鳥松區 明湖路</b><br><span style='color:#f1c40f;font-weight:bold'>988 萬</span> (32.33 萬/坪)<br>3房2廳2衛 · 30.56 坪 · 28年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區3房｜100萬</span><br><b style='color:#f1c40f'>低於市場行情 4%</b><br><a href='https://sale.591.com.tw/home/house/detail/2/20296706.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.734010328527262, 120.3147142954145], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>楠梓區 後昌新路3巷</b><br><span style='color:#f1c40f;font-weight:bold'>898 萬</span> (39.25 萬/坪)<br>2房2廳1衛 · 22.88 坪 · 1年<br><a href='https://sale.591.com.tw/home/house/detail/2/20063654.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.72928628645268, 120.31306382453572], {
+            radius: 12,
+            color: '#8e44ad', fillColor: '#f1c40f', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 楠梓區 樂群路98巷</b><br><span style='color:#f1c40f;font-weight:bold'>998 萬</span> (37.82 萬/坪)<br>4房2廳3衛 · 26.39 坪 · 41年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>已降價｜290萬</span><br><a href='https://sale.591.com.tw/home/house/detail/2/19773750.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.69617523803501, 120.35124955937879], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>仁武區 京吉二路</b><br><span style='color:#f1c40f;font-weight:bold'>998 萬</span> (33.98 萬/坪)<br>2房2廳2衛 · 29.37 坪 · 4個月<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區2房｜316萬</span><br><a href='https://sale.591.com.tw/home/house/detail/2/20253400.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.623375820795935, 120.3564115929021], {
+            radius: 12,
+            color: '#8e44ad', fillColor: '#f1c40f', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 鳳山區 文雅街22巷</b><br><span style='color:#f1c40f;font-weight:bold'>938 萬</span> (57.02 萬/坪)<br>開放式格局 · 16.45 坪 · 51年<br><a href='https://sale.591.com.tw/home/house/detail/2/20178738.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62647938556394, 120.28744825121379], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>鹽埕區 五福四路</b><br><span style='color:#f1c40f;font-weight:bold'>598 萬</span> (45.23 萬/坪)<br>2房1廳1衛 · 13.22 坪 · 46年<br><a href='https://sale.591.com.tw/home/house/detail/2/20063603.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.633591915160245, 120.29591670484051], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>前金區 自立橫路</b><br><span style='color:#f1c40f;font-weight:bold'>998 萬</span> (39.98 萬/坪)<br>2房1廳1衛 · 24.96 坪 · 20年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>前金區 住宅收藏排名第1名</span><br><a href='https://sale.591.com.tw/home/house/detail/2/20243892.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.693798011314634, 120.2979329373694], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 文川路</b><br><span style='color:#f1c40f;font-weight:bold'>928 萬</span> (46.92 萬/坪)<br>2房1廳1衛 · 19.78 坪 · 3年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>總價低於同社區2房｜70萬</span><br><a href='https://sale.591.com.tw/home/house/detail/2/20105475.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.684511788111152, 120.29277349587869], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>左營區 正心街</b><br><span style='color:#f1c40f;font-weight:bold'>698 萬</span> (46.56 萬/坪)<br>1房1廳1衛 · 14.99 坪 · 14年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>左營區 住宅收藏排名第1名</span><br><a href='https://sale.591.com.tw/home/house/detail/2/20110532.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.62813145682706, 120.30075247988474], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>前金區 自強一路52巷</b><br><span style='color:#f1c40f;font-weight:bold'>718 萬</span> (45.85 萬/坪)<br>2房2廳1衛 · 15.66 坪 · 44年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>前金區 住宅熱搜排名第3名</span><br><a href='https://sale.591.com.tw/home/house/detail/2/20146032.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.625159115866417, 120.36066917907664], {
+            radius: 12,
+            color: '#8e44ad', fillColor: '#f1c40f', fillOpacity: 0.85, weight: 4,
+            dashArray: '6,3'
+        }).addTo(map).bindPopup(`<b>🏘️ 透天厝 鳳山區 南正一路2巷</b><br><span style='color:#f1c40f;font-weight:bold'>950 萬</span> (40.72 萬/坪)<br>5房2廳2衛 · 23.33 坪 · 48年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>鳳山區 住宅熱搜排名第8名</span><br><a href='https://sale.591.com.tw/home/house/detail/2/19878312.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([22.631821170238094, 120.29855636304542], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>前金區 河東路</b><br><span style='color:#f1c40f;font-weight:bold'>966 萬</span> (40.88 萬/坪)<br>2房1廳1衛 · 23.63 坪 · 1年<br><span style='background:#fff3cd;padding:2px 4px;border-radius:3px;font-size:11px'>前金區 住宅收藏排名第5名</span><br><a href='https://sale.591.com.tw/home/house/detail/2/20105767.html' target='_blank'>→ 591 查看</a>`);
+        L.circleMarker([23.032491504977664, 120.24930864693829], {
+            radius: 8,
+            color: '#f1c40f', fillColor: '#f1c40f', fillOpacity: 0.75, weight: 2
+        }).addTo(map).bindPopup(`<b>永康區 富強路二段121巷</b><br><span style='color:#f1c40f;font-weight:bold'>858 萬</span> (40.21 萬/坪)<br>2房2廳2衛 · 21.34 坪 · 4年<br><a href='https://sale.591.com.tw/home/house/detail/2/20318827.html' target='_blank'>→ 591 查看</a>`);
+
+function filterCards(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.card').forEach(card => {
+    if (filter === 'all' || card.textContent.includes(filter)) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+</script>
+
+</body>
+</html>
